@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>机械专业薪资 × 大学竞赛 关联可视化</title>
+<style>
+  :root{
+    --bg:#f6f7fb; --card:#ffffff; --ink:#1e293b; --muted:#64748b; --line:#e2e8f0;
+    --g1:#94a3b8; --g2:#0ea5e9; --g3:#8b5cf6; --g4:#f59e0b; --g5:#10b981;
+    --accent:#2563eb;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;background:var(--bg);color:var(--ink);line-height:1.65}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  header{background:linear-gradient(135deg,#1e3a8a,#2563eb 55%,#0ea5e9);color:#fff;padding:46px 0 38px}
+  header h1{font-size:30px;letter-spacing:.5px}
+  header p{opacity:.92;margin-top:8px;font-size:15px}
+  .chips{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
+  .chip{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);padding:3px 12px;border-radius:999px;font-size:12.5px}
+  .warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:10px;padding:12px 16px;font-size:13.5px;margin:18px 0}
+  nav{position:sticky;top:0;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);z-index:50}
+  nav .wrap{display:flex;gap:4px;overflow-x:auto;padding:8px 20px}
+  nav a{white-space:nowrap;font-size:13.5px;color:var(--muted);text-decoration:none;padding:6px 12px;border-radius:8px}
+  nav a:hover{background:#eef2ff;color:var(--accent)}
+  section{padding:34px 0 6px}
+  h2{font-size:21px;margin-bottom:4px}
+  .sub{color:var(--muted);font-size:13.5px;margin-bottom:18px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:16px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .kpi .big{font-size:26px;font-weight:700}
+  .kpi .lab{color:var(--muted);font-size:13px;margin-top:2px}
+  .kpi .note{font-size:12px;color:#94a3b8;margin-top:8px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-top:14px}
+  /* group chart */
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:6px 0 14px}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  .grow{display:grid;grid-template-columns:150px 1fr;gap:8px 12px;align-items:center;margin-bottom:14px}
+  .grow .gname{font-size:13.5px}
+  .grow .gname b{display:block;font-size:14px}
+  .grow .gname span{color:var(--muted);font-size:12px}
+  .gsvg{width:100%;height:auto;display:block}
+  .tooltip{position:fixed;pointer-events:none;background:#0f172a;color:#fff;font-size:12.5px;border-radius:8px;padding:8px 12px;max-width:300px;opacity:0;transition:opacity .12s;z-index:99;line-height:1.5}
+  /* table */
+  .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+  .fbtn{border:1px solid var(--line);background:#fff;color:var(--muted);font-size:12.5px;padding:5px 12px;border-radius:999px;cursor:pointer}
+  .fbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tblwrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:13px;min-width:820px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:12.5px;background:#f8fafc;position:sticky;top:0}
+  th.sortable{cursor:pointer;user-select:none}
+  th.sortable:hover{color:var(--accent)}
+  td .pf{display:inline-block;padding:1px 8px;border-radius:6px;font-size:11.5px;background:#f1f5f9;color:#475569}
+  td a{color:var(--accent);text-decoration:none}
+  td a:hover{text-decoration:underline}
+  .gtag{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+  /* bars for competitions */
+  .cbar{display:grid;grid-template-columns:190px 1fr 90px;gap:10px;align-items:center;margin-bottom:10px;font-size:13.5px}
+  .ctrack{background:#f1f5f9;border-radius:6px;height:20px;position:relative;overflow:hidden}
+  .cfill{height:100%;border-radius:6px;transition:width .8s cubic-bezier(.2,.8,.2,1)}
+  .cval{font-size:12px;color:var(--muted);text-align:right}
+  /* policy bar */
+  .pstack{display:flex;height:34px;border-radius:8px;overflow:hidden;font-size:12px;color:#fff;margin:10px 0}
+  .pstack div{display:flex;align-items:center;justify-content:center;min-width:0;white-space:nowrap}
+  /* estimator */
+  .est{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:6px 0 14px}
+  .est label{font-size:12.5px;color:var(--muted);display:block;margin-bottom:4px}
+  .est select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff}
+  .result{background:linear-gradient(135deg,#eef2ff,#ecfeff);border:1px solid #c7d2fe;border-radius:12px;padding:16px 20px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .result .num{font-size:32px;font-weight:800;color:var(--accent)}
+  .result .unit{color:var(--muted);font-size:13px}
+  .estbar{height:14px;background:#e2e8f0;border-radius:7px;margin-top:12px;position:relative}
+  .estbar .fill{position:absolute;left:0;top:0;height:100%;border-radius:7px;background:linear-gradient(90deg,#38bdf8,#6366f1);transition:all .5s}
+  .estnote{font-size:12px;color:#94a3b8;margin-top:10px}
+  /* conclusions */
+  .concl{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-top:14px}
+  .citem{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;font-size:13.5px}
+  .citem b{color:var(--accent)}
+  .citem .t{font-weight:700;margin-bottom:6px}
+  footer{padding:30px 0 50px;color:var(--muted);font-size:12.5px}
+  footer a{color:var(--accent);text-decoration:none}
+  footer a:hover{text-decoration:underline}
+  footer li{margin:4px 0 4px 18px}
+  @media(max-width:640px){header h1{font-size:23px}.grow{grid-template-columns:105px 1fr}.cbar{grid-template-columns:120px 1fr 70px}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>机械专业薪资水平 × 大学竞赛 关联可视化</h1>
+    <p>基于知乎 / 牛客 / 贴吧 / 抖音 / 微博媒体 / GitHub / B站 / 官方文件等 16 组真实案例 · 2026-10 检索</p>
+    <div class="chips">
+      <span class="chip">5 个对照组</span><span class="chip">16 组数据锚点</span><span class="chip">可交互筛选</span><span class="chip">薪资预估器</span>
+    </div>
+  </div>
+</header>
+
+<nav><div class="wrap">
+  <a href="#chart">五组对照</a><a href="#cases">案例库</a><a href="#comp">赛事价值</a><a href="#policy">保研加分</a><a href="#est">薪资预估器</a><a href="#concl">结论</a><a href="#src">数据来源</a>
+</div></nav>
+
+<div class="wrap">
+  <div class="warn">⚠️ <b>数据性质声明</b>：以下薪资均为社交平台/媒体<b>自报或报道数据</b>，存在幸存者偏差（高薪者更愿晒、劝退帖传播更广）。目前没有任何严格的学术研究直接量化"竞赛→薪资"因果。图表区间为<b>基于案例锚点的推断</b>，锚点案例已逐条标注来源，请理性参考。</div>
+</div>
+
+<!-- ============ KPI ============ -->
+<section id="top"><div class="wrap">
+  <div class="cards">
+    <div class="kpi"><div class="big">+100~200%</div><div class="lab">学历溢价（本科→硕士）</div><div class="note">最大单项变量：双非本科6-8k/月 vs 双非硕士20w+/年（牛客案例）</div></div>
+    <div class="kpi"><div class="big">+30~80%</div><div class="lab">竞赛对本科起薪的关联</div><div class="note">且简历通过率显著提高——竞赛是筛选器，不是直接加价券</div></div>
+    <div class="kpi"><div class="big">4-10万/月</div><div class="lab">机器人赛道天花板（宇树）</div><div class="note">人形机器人企业抢人，相关岗位涨薪60%（21世纪经济报道）</div></div>
+    <div class="kpi"><div class="big">1-3万</div><div class="lab">RoboMaster 通道签约奖</div><div class="note">字节/小鹏/追觅/拓竹等批量出现"RM经验优先"岗位</div></div>
+  </div>
+</div></section>
+
+<!-- ============ 五组对照图 ============ -->
+<section id="chart"><div class="wrap">
+  <h2>五个对照组 · 应届起薪范围</h2>
+  <div class="sub">横条 = 年薪区间（万元，税前总包）。每组两条：上为双非院校基准，下为985/顶尖。悬停查看锚点案例。⚠️ 组5右端200万为具身智能方向极端值，非中位数。</div>
+  <div class="legend">
+    <span><i style="background:var(--g1)"></i>组1 无竞赛无科研·本科</span>
+    <span><i style="background:var(--g2)"></i>组2 有竞赛无科研·本科</span>
+    <span><i style="background:var(--g3)"></i>组3 有竞赛+科研·本科</span>
+    <span><i style="background:var(--g4)"></i>组4 无竞赛·硕士</span>
+    <span><i style="background:var(--g5)"></i>组5 有竞赛·硕士</span>
+  </div>
+  <div class="card"><div id="gchart"></div></div>
+</div></section>
+
+<!-- ============ 案例库 ============ -->
+<section id="cases"><div class="wrap">
+  <h2>交互案例库（16 组）</h2>
+  <div class="sub">按平台筛选、按对照组筛选、点击"年薪估算"列排序。年薪估算为换算值（月薪×13~15 或直接取报道值），仅用于排序对比。</div>
+  <div class="card">
+    <div class="filters" id="fpf"></div>
+    <div class="filters" id="fgrp" style="margin-top:8px"></div>
+    <div class="tblwrap" style="margin-top:12px">
+      <table>
+        <thead><tr>
+          <th>平台</th><th>对照组</th><th>案例背景</th><th>竞赛 / 政策</th>
+          <th class="sortable" id="sortSalary">薪资 / 结果 ⇅</th><th>年薪估算(万)</th><th>来源</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div></section>
+
+<!-- ============ 赛事价值 ============ -->
+<section id="comp"><div class="wrap">
+  <h2>赛事价值排行（机械生视角）</h2>
+  <div class="sub">综合 HR/面试官认知度 × 与机械专业适配度 × 变现渠道（招聘通道/保研加分/面试谈资）得出的参考分（满分100，非官方评分）。⚠️ 分值基于案例与讨论的综合判断，奖项层级的影响远大于赛事选择本身。</div>
+  <div class="card" id="compbars"></div>
+  <div class="card" style="margin-top:12px">
+    <b style="font-size:14px">奖项层级的价值阶梯</b>
+    <div class="pstack" style="margin-top:12px">
+      <div style="flex:1;background:#f87171">校奖 ≈ 0</div>
+      <div style="flex:1.4;background:#fb923c">省奖：看赛事知名度</div>
+      <div style="flex:1.8;background:#34d399">国二：有效面试谈资</div>
+      <div style="flex:2.2;background:#059669">国一：头部公司直通卡</div>
+    </div>
+    <div style="font-size:12.5px;color:var(--muted);margin-top:8px">真实案例：某省二在保研面试被老师问"这是什么比赛"（低知名度赛事）；RM冠军队员、智能车国一则常被大疆/华为提前锁定。</div>
+  </div>
+</div></section>
+
+<!-- ============ 保研加分 ============ -->
+<section id="policy"><div class="wrap">
+  <h2>保研成绩构成：竞赛到底值几分？</h2>
+  <div class="sub">以湖南大学机械与运载工程学院2026级推免细则为例（官方文件）：竞赛加分累计 ≤0.8 分，科研成果加分累计 ≤0.8 分，绩点仍是绝对主体。</div>
+  <div class="card">
+    <div class="pstack">
+      <div style="flex:6.5;background:#2563eb">学业成绩（绩点）——绝对主体</div>
+      <div style="flex:1;background:#8b5cf6" title="竞赛加分">竞赛 ≤0.8分</div>
+      <div style="flex:1;background:#10b981">科研 ≤0.8分</div>
+    </div>
+    <div style="font-size:13px;color:var(--muted);margin-top:10px">解读：竞赛加分上限约相当于绩点提升0.05-0.1的量级。<b>竞赛改变命运的主通道不是加分本身，而是"竞赛→面试表现→获取offer"和"竞赛+科研→保研资格→硕士学历→薪资翻倍"这两条链路。</b>这也解释了为什么知乎上"7个比赛国奖却绩点坍塌丢奖学金"的案例会翻车——加分补不上绩点损失。</div>
+  </div>
+</div></section>
+
+<!-- ============ 预估器 ============ -->
+<section id="est"><div class="wrap">
+  <h2>薪资预估器（示意模型）</h2>
+  <div class="sub">选择你的条件，基于上文案例锚点给出粗略区间。<b>这是教学示意模型，不是统计预测</b>——真实结果受城市、公司、岗位、个人能力影响巨大。</div>
+  <div class="card">
+    <div class="est">
+      <div><label>学历层次</label><select id="eDeg"><option value="bs">本科</option><option value="ms">硕士</option></select></div>
+      <div><label>院校层级</label><select id="eSch"><option value="df">双非/普通院校</option><option value="985">985/顶尖211</option></select></div>
+      <div><label>竞赛情况</label><select id="eComp"><option value="0">无竞赛</option><option value="1">省级奖（头部赛事）</option><option value="2">国家级奖</option></select></div>
+      <div><label>目标赛道</label><select id="eTrk"><option value="0">传统制造（工艺/设备）</option><option value="1" selected>汽车/新能源</option><option value="2">机器人/智能硬件</option><option value="3">具身智能/AI方向</option></select></div>
+    </div>
+    <div class="result"><span>预估年薪区间</span><span class="num" id="eNum">—</span><span class="unit">万元 / 年（税前总包）</span></div>
+    <div class="estbar"><div class="fill" id="eFill" style="left:0;width:0"></div></div>
+    <div class="estnote" id="eNote"></div>
+  </div>
+</div></section>
+
+<!-- ============ 结论 ============ -->
+<section id="concl"><div class="wrap">
+  <h2>六条核心结论</h2>
+  <div class="concl">
+    <div class="citem"><div class="t">1️⃣ 竞赛不直接加薪，它的价值是"过筛子"</div>2026年5月起字节、小鹏、Momenta、追觅、拓竹、影石等公司批量出现"RoboMaster经验优先"岗位；大疆11年赛事已签走近千名参赛者。竞赛的真实作用：简历筛选器 + 面试谈资 + 升学杠杆。</div>
+    <div class="citem"><div class="t">2️⃣ 学历 &gt; 竞赛</div>无竞赛硕士（组4，20-30w）的起薪中位数高于有竞赛本科（组2，10-18w）约50%以上。竞赛改变命运的路径是"保研→硕士→研发岗"，不是直接高薪。</div>
+    <div class="citem"><div class="t">3️⃣ 奖项层级决定价值量级</div>国一=直通卡；国二=有效谈资；省奖看赛事知名度（真实案例：保研面试老师问"省二这是什么比赛"）；校奖≈0。</div>
+    <div class="citem"><div class="t">4️⃣ 赛事选择比参赛本身更重要</div>头部赛事：RoboMaster、机械创新设计大赛、智能车（恩智浦杯）、挑战杯、电赛、工程训练大赛。行业协会杯赛/商业赛在HR眼里≈无效。</div>
+    <div class="citem"><div class="t">5️⃣ 竞赛三陷阱</div>①绩点坍塌：7个比赛国奖却丢奖学金的真实案例；②调参侠：只会调PID说不清原理，面试穿帮；③杂牌赛事浪费时间。对策：平衡绩点、赛后补理论、只打头部赛事。</div>
+    <div class="citem"><div class="t">6️⃣ 零竞赛逆袭路径存在</div>GitHub上本硕双非、零竞赛的嵌入式工程师，靠STM32+Linux驱动项目+技术博客拿下小米/大华等10个offer。项目经历与竞赛在面试官眼里等价——竞赛只是项目经历的一种来源。</div>
+  </div>
+</div></section>
+
+<!-- ============ 来源 ============ -->
+<footer id="src"><div class="wrap">
+  <b>数据来源（检索于2026-10-08）</b>
+  <ul>
+    <li>牛客网：<a href="https://www.nowcoder.com/feed/main/detail/fbd211fa4c22413dab7a589aa52fdc40" target="_blank">双非机械本硕秋招记录</a> · <a href="https://www.nowcoder.com/discuss/764589458548105216" target="_blank">机械专业目前的真实就业情况</a></li>
+    <li>知乎：<a href="https://www.zhihu.com/question/355101076" target="_blank">大学学的机械，参加那么多比赛有用吗？</a> · <a href="https://www.zhihu.com/question/309272368" target="_blank">机械专业的真实待遇都是怎样的？</a> · <a href="https://www.zhihu.com/question/530501467" target="_blank">如何看待月薪1.4万招不到机械专业学生</a></li>
+    <li>媒体报道：<a href="https://finance.sina.com.cn/tech/roll/2026-05-08/doc-inhxfamx7465508.shtml" target="_blank">新浪财经·RoboMaster优先岗位</a> · <a href="https://view.inews.qq.com/a/20260522A0B0CF00" target="_blank">腾讯新闻·大疆11年赛事成人才筛选器</a> · <a href="https://www.21jingji.com/article/20250925/herald/a59a74534bac9ad62dc4b88fc9028d10.html" target="_blank">21世纪经济报道·人形机器人抢人</a> · <a href="https://tech.ifeng.com/c/8FafoUMZTCf" target="_blank">凤凰科技·月薪1.4万招不到机械毕业生</a> · <a href="https://eu.36kr.com/zh/p/3974392667107846" target="_blank">36氪·机械涨薪25%</a></li>
+    <li>视频平台：<a href="https://www.douyin.com/video/7674586499798682943" target="_blank">抖音·一本机械月薪3500</a> · <a href="https://www.bilibili.com/video/BV19BCTBQECY/" target="_blank">B站·985土木跨行机器人28W+</a></li>
+    <li>GitHub：<a href="https://github.com/ZhongYi-LinuxDriverDev/EmbeddedSoftwareEngineerInterview" target="_blank">嵌入式软件工程师的秋招之路</a></li>
+    <li>官方/企业：<a href="https://app.gaokaozhitongche.com/news/h/kzLk4Ma2" target="_blank">比亚迪2026校招</a> · <a href="https://mve.hnu.edu.cn/info/1609/12164.htm" target="_blank">湖南大学机械学院2026推免细则</a> · <a href="https://www.robomaster.com/zh-CN/recruit" target="_blank">大疆RM专属招聘通道</a> · <a href="https://unifuncs.com/s/o8VGWtSI" target="_blank">U深研·RM参赛队员就业全景</a> · <a href="https://auto.huawei.com/cn/campaign/ads-open-championship" target="_blank">华为乾崑智驾公开赛</a></li>
+  </ul>
+  <div style="margin-top:14px;opacity:.7">配套文档：《机械专业薪资与竞赛关联研究报告.md》 · 生成于 Qoder · 数据为自报/报道口径，仅供决策参考</div>
+</div></footer>
+
+<div class="tooltip" id="tt"></div>
+
+<script>
+/* ================= 数据 ================= */
+const GROUPS = [
+  {id:1,color:"#94a3b8",name:"组1 无竞赛无科研·本科",short:"无竞赛·本科",df:[5,12],top:[12,16],
+   anchorsDf:"牛客：二本7k起；本硕贴本科6-8k；抖音：一本3500/月；比亚迪非985本科≈12w",
+   anchorsTop:"比亚迪985本科≈15w；凤凰：普通大厂1-1.4万/月招不满",
+   note:"典型去向：中小厂工艺/设备/结构岗。只能公开海投，简历通过率最低。"},
+  {id:2,color:"#0ea5e9",name:"组2 有竞赛无科研·本科",short:"有竞赛·本科",df:[9,14],top:[15,28],
+   anchorsDf:"知乎：竞赛背景宣讲会保底8000+；RM签约奖1-3万",
+   anchorsTop:"RM等竞赛通道进大疆/字节硬件岗≈1.5-2.3万/月",
+   note:"竞赛是简历筛选器：机器人/智能硬件公司用竞赛关键词筛人，通过率显著提高。"},
+  {id:3,color:"#8b5cf6",name:"组3 有竞赛+科研·本科",short:"竞赛+科研·本科",df:[9,14],top:[15,28],
+   anchorsDf:"短期就业≈组2；湖大推免细则：竞赛≤0.8分+科研≤0.8分→保研资格",
+   anchorsTop:"走升学通道，硕士毕业后薪资=组5",
+   note:"真正价值在保研：短期薪资与组2相当，学历跃迁后翻倍。竞赛+科研是保研两大硬通货。"},
+  {id:4,color:"#f59e0b",name:"组4 无竞赛·硕士",short:"无竞赛·硕士",df:[18,25],top:[28,36],
+   anchorsDf:"牛客：双非硕士私企20w+；三峡大学硕士1.2w/月",
+   anchorsTop:"牛客：985硕士30w+；东南大学案例30w",
+   note:"学历溢价是最大单项变量：较组1高100-200%。典型去向：国企/研究所/汽车厂。"},
+  {id:5,color:"#10b981",name:"组5 有竞赛·硕士",short:"有竞赛·硕士",df:[28,55],top:[40,200],
+   anchorsDf:"RM算法岗2.33万/月；B站：985跨行机器人28w",
+   anchorsTop:"字节硕士4-6万/月；宇树4-10万/月；具身智能最高200w/年（极端值）",
+   note:"竞赛+硕士=研发岗门票。岗位类型完全不同：算法/电控研发 vs 工艺/设备。"}
+];
+
+const CASES = [
+  {pf:"牛客网",g:4,bg:"双非机械本硕，投50家获10个offer",comp:"无突出竞赛",sal:"本科6-8k/月；硕士私企20w+；转码30w+；985硕士30w+",v:[6,30],url:"https://www.nowcoder.com/feed/main/detail/fbd211fa4c22413dab7a589aa52fdc40"},
+  {pf:"牛客网",g:1,bg:"江苏二本机械本科",comp:"无",sal:"7k/月起",v:[9.1,9.1],url:"https://www.nowcoder.com/discuss/764589458548105216"},
+  {pf:"牛客网",g:4,bg:"三峡大学机械硕士",comp:"无",sal:"1.2万/月",v:[18,18],url:"https://www.nowcoder.com/discuss/764589458548105216"},
+  {pf:"牛客网",g:4,bg:"东南大学机械毕业",comp:"无",sal:"30w/年",v:[30,30],url:"https://www.nowcoder.com/discuss/764589458548105216"},
+  {pf:"牛客网",g:1,bg:"安工大毕业11年结构设计师（长线警示）",comp:"无",sal:"月薪约2.7k×14+公积金（11年后）",v:[3.8,3.8],url:"https://www.nowcoder.com/discuss/764589458548105216"},
+  {pf:"抖音",g:1,bg:"一本机械本科，第一份工作",comp:"无",sal:"月薪3500（警示案例）",v:[4.6,4.6],url:"https://www.douyin.com/video/7674586499798682943"},
+  {pf:"微博媒体",g:1,bg:"985机械/液压毕业生被大厂提前签走",comp:"（报道未披露细节，头部生源）",sal:"年薪20-39万被签走；普通厂1.4万/月招不到人",v:[20,39],url:"https://tech.ifeng.com/c/8FafoUMZTCf"},
+  {pf:"行业媒体",g:2,bg:"36氪引蓝皮书口径：机械/材料应届薪资变化",comp:"-",sal:"机械/材料涨幅超25%；对照AI本科月薪7084",v:null,url:"https://eu.36kr.com/zh/p/3974392667107846"},
+  {pf:"行业媒体",g:5,bg:"RoboMaster参赛队员就业全景",comp:"RM参赛经历",sal:"算法岗2.33万/月；字节硕士4-6万/月；阿里腾讯约3万/月；具身智能最高200w/年",v:[35,200],url:"https://unifuncs.com/s/o8VGWtSI"},
+  {pf:"微博媒体",g:2,bg:"招聘平台批量出现'RM经验优先'岗位",comp:"RoboMaster",sal:"字节/小鹏/Momenta/追觅/拓竹/影石；签约奖1-3万",v:null,url:"https://finance.sina.com.cn/tech/roll/2026-05-08/doc-inhxfamx7465508.shtml"},
+  {pf:"行业媒体",g:5,bg:"宇树/优必选/智元抢人战（2025.9）",comp:"需运动控制算法（MPC/WBC）",sal:"宇树月薪4-10万；相关岗位涨薪60%",v:[55,150],url:"https://www.21jingji.com/article/20250925/herald/a59a74534bac9ad62dc4b88fc9028d10.html"},
+  {pf:"知乎",g:2,bg:"普本机械大四（机创/工程训练/智能车/电赛/大创/互联网+）",comp:"机械创新设计大赛、工程训练大赛、飞思卡尔智能车、电赛等",sal:"'宣讲会拿保底8000+的offer也是蛮香的'",v:[10.4,10.4],url:"https://www.zhihu.com/question/355101076"},
+  {pf:"知乎",g:3,bg:"7个比赛答主（警示向）",comp:"机械类+电赛类国赛省赛二等奖多个",sal:"绩点受损，奖学金被绩点高0.3的校赛同学挤掉",v:null,url:"https://www.zhihu.com/question/355101076"},
+  {pf:"GitHub",g:5,bg:"本硕双非、零竞赛嵌入式工程师（2020）",comp:"无竞赛；STM32+Linux驱动项目+技术博客",sal:"小米/兆易创新/全志/浙江大华等10个offer",v:[18,25],url:"https://github.com/ZhongYi-LinuxDriverDev/EmbeddedSoftwareEngineerInterview"},
+  {pf:"B站",g:5,bg:"985土木硕士跨行机器人公司",comp:"机器人方向转型",sal:"年薪28W+",v:[28,28],url:"https://www.bilibili.com/video/BV19BCTBQECY/"},
+  {pf:"官方政策",g:3,bg:"比亚迪2026校招（机械类为主要专业）",comp:"-",sal:"非985本科≈12w；985本科≈15w；博士最高50w",v:[12,15],url:"https://app.gaokaozhitongche.com/news/h/kzLk4Ma2"},
+  {pf:"官方政策",g:3,bg:"湖南大学机械学院2026推免细则",comp:"竞赛加分累计≤0.8分；科研≤0.8分",sal:"绩点仍是保研绝对主体",v:null,url:"https://mve.hnu.edu.cn/info/1609/12164.htm"}
+];
+
+const COMPS = [
+  {name:"RoboMaster 机甲大师",score:95,note:"机器人公司点名要；专属招聘通道+签约奖1-3万",color:"#10b981"},
+  {name:"机械创新设计大赛",score:90,note:"机械圈最高认可；保研加分+专利产出",color:"#10b981"},
+  {name:"智能汽车竞赛（恩智浦杯）",score:88,note:"嵌入式圈认可度极高；电控岗面试硬通货",color:"#0ea5e9"},
+  {name:"挑战杯 / 互联网+",score:85,note:"保研硬通货；重文档与商业化，技术含量相对弱",color:"#8b5cf6"},
+  {name:"电子设计竞赛（电赛）",score:82,note:"偏电类，机械生跨界参与有门槛",color:"#0ea5e9"},
+  {name:"工程训练综合能力竞赛",score:72,note:"含金量可以但认知度有盲区（真实案例：面试老师没听过）",color:"#f59e0b"},
+  {name:"行业协会杯赛/商业赛事",score:25,note:"HR基本不认，时间不如花在GitHub项目上",color:"#f87171"}
+];
+
+/* ================= 五组薪资图 ================= */
+const MAXV=200;
+const sx=v=>(Math.sqrt(Math.min(v,MAXV)/MAXV)*100);
+
+function renderGroups(){
+  const el=document.getElementById("gchart");
+  let html="";
+  GROUPS.forEach(g=>{
+    html+=`<div class="grow">
+      <div class="gname"><b style="color:${g.color}">组${g.id} · ${g.short}</b></div>
+      <div>
+        ${[[g.df,"双非基准"],[g.top,"985/顶尖"]].map(([r,lab])=>{
+          const l=sx(r[0]),w=sx(r[1])-sx(r[0]);
+          return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px" class="rng" data-tip="<b>${g.name}（${lab}）</b><br>区间：${r[0]}万 ~ ${r[1]}万/年<br><br>${lab==='双非基准'?g.anchorsDf:g.anchorsTop}<br><br>${g.note}">
+            <div style="flex:1;background:#f1f5f9;border-radius:5px;height:18px;position:relative">
+              <div style="position:absolute;left:${l}%;width:${Math.max(w,1.5)}%;top:0;height:100%;border-radius:5px;background:${g.color};opacity:${lab==='双非基准'?0.55:1};cursor:pointer"></div>
+            </div>
+            <span style="font-size:11.5px;color:#64748b;min-width:86px;text-align:right">${r[0]}~${r[1]}万</span>
+          </div>`;}).join("")}
+      </div>
+    </div>`;
+  });
+  html+=`<div style="height:22px;position:relative;margin-top:4px">
+    <div style="position:absolute;left:${sx(200)}%;transform:translateX(-50%);font-size:11px;color:#94a3b8">▲ 200万=具身智能极端值</div></div>`;
+  el.innerHTML=html;
+}
+
+/* ================= 案例表 ================= */
+let fPf="全部", fGr=0, sortAsc=false;
+function renderFilters(){
+  const pfs=["全部",...new Set(CASES.map(c=>c.pf))];
+  document.getElementById("fpf").innerHTML=pfs.map(p=>`<button class="fbtn ${p===fPf?'on':''}" data-pf="${p}">${p}</button>`).join("");
+  const grs=["全部","组1 无竞赛本科","组2 有竞赛本科","组3 竞赛+科研本科","组4 无竞赛硕士","组5 有竞赛硕士"];
+  document.getElementById("fgrp").innerHTML=grs.map((g,i)=>`<button class="fbtn ${i===fGr?'on':''}" data-gr="${i}">${g}</button>`).join("");
+}
+const GCOLORS={1:"#94a3b8",2:"#0ea5e9",3:"#8b5cf6",4:"#f59e0b",5:"#10b981"};
+function renderTable(){
+  let rows=CASES.filter(c=>(fPf==="全部"||c.pf===fPf)&&(fGr===0||c.g===fGr));
+  rows.sort((a,b)=>{const av=a.v?a.v[1]:-1,bv=b.v?b.v[1]:-1;return sortAsc?av-bv:bv-av;});
+  document.getElementById("tbody").innerHTML=rows.map(c=>`<tr>
+    <td><span class="pf">${c.pf}</span></td>
+    <td>${c.g?`<span class="gtag" style="background:${GCOLORS[c.g]}"></span>组${c.g}`:"—"}</td>
+    <td style="max-width:220px">${c.bg}</td>
+    <td style="max-width:200px;color:#475569">${c.comp}</td>
+    <td style="max-width:250px"><b>${c.sal}</b></td>
+    <td>${c.v?(c.v[0]===c.v[1]?c.v[0]:c.v[0]+"~"+c.v[1]):"—"}</td>
+    <td><a href="${c.url}" target="_blank">链接</a></td>
+  </tr>`).join("");
+}
+renderFilters();renderTable();
+document.getElementById("fpf").addEventListener("click",e=>{const b=e.target.closest("[data-pf]");if(b){fPf=b.dataset.pf;renderFilters();renderTable();}});
+document.getElementById("fgrp").addEventListener("click",e=>{const b=e.target.closest("[data-gr]");if(b){fGr=+b.dataset.gr;renderFilters();renderTable();}});
+document.getElementById("sortSalary").addEventListener("click",()=>{sortAsc=!sortAsc;renderTable();});
+
+/* ================= 赛事条形图 ================= */
+function renderComps(){
+  document.getElementById("compbars").innerHTML=COMPS.map(c=>`<div class="cbar">
+    <div>${c.name}</div>
+    <div class="ctrack"><div class="cfill" style="width:0;background:${c.color}" data-w="${c.score}"></div></div>
+    <div class="cval">${c.score}分</div>
+  </div><div style="font-size:12px;color:#94a3b8;margin:-6px 0 12px 200px">${c.note}</div>`).join("");
+  requestAnimationFrame(()=>{document.querySelectorAll(".cfill").forEach(f=>f.style.width=f.dataset.w+"%");});
+}
+renderComps();
+
+/* ================= 预估器 ================= */
+const BASES={bs_df:[5,12],bs_985:[12,16],ms_df:[18,25],ms_985:[28,35]};
+const COMPF=[[1,1],[1.05,1.15],[1.15,1.4]];
+const TRKF=[0.85,1.0,1.3,1.8];
+const TRKNAME=["传统制造","汽车/新能源","机器人/智能硬件","具身智能/AI"];
+function estimate(){
+  const deg=document.getElementById("eDeg").value, sch=document.getElementById("eSch").value;
+  const ci=+document.getElementById("eComp").value, ti=+document.getElementById("eTrk").value;
+  const base=BASES[deg+"_"+sch], cf=COMPF[ci], tf=TRKF[ti];
+  let lo=Math.round(base[0]*cf[0]*tf), hi=Math.round(base[1]*cf[1]*tf);
+  hi=Math.min(hi,200);lo=Math.min(lo,hi-1);
+  document.getElementById("eNum").textContent=lo+" ~ "+hi;
+  const pct=v=>sx(v);
+  document.getElementById("eFill").style.left=pct(lo)+"%";
+  document.getElementById("eFill").style.width=Math.max(pct(hi)-pct(lo),2)+"%";
+  let notes=[`基准锚点：${base[0]}~${base[1]}万（${deg==="bs"?"本科":"硕士"}·${sch==="985"?"985/顶尖211":"双非"}）`,`赛道系数 ×${tf}（${TRKNAME[ti]}）`,`竞赛系数 ×${cf[0]}~${cf[1]}（影响岗位层级与面试通过率，非直接加薪）`];
+  if(deg==="bs"&&ti===3)notes.push("⚠️ 具身智能赛道以硕士为主，本科需竞赛+开源项目破格");
+  if(ci===0&&deg==="bs")notes.push("提示：组1路径简历通过率最低，建议补充竞赛或开源项目");
+  document.getElementById("eNote").innerHTML=notes.join(" · ");
+}
+["eDeg","eSch","eComp","eTrk"].forEach(id=>document.getElementById(id).addEventListener("change",estimate));
+estimate();
+
+/* ================= tooltip ================= */
+const tt=document.getElementById("tt");
+document.addEventListener("mousemove",e=>{
+  const t=e.target.closest(".rng");
+  if(t){tt.innerHTML=t.dataset.tip;tt.style.opacity=1;
+    const x=Math.min(e.clientX+14,window.innerWidth-320),y=Math.min(e.clientY+14,window.innerHeight-140);
+    tt.style.left=x+"px";tt.style.top=y+"px";}
+  else tt.style.opacity=0;
+});
+renderGroups();
+</script>
+</body>
+</html>
